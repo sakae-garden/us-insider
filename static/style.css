@@ -21,13 +21,13 @@ a{color:inherit}main{max-width:980px;margin:0 auto;padding:0 14px 40px}
 .box h2{font-size:19px;margin:0 0 8px;padding-left:10px;border-left:4px solid var(--ink);line-height:1.4}
 .lead{font-size:14.5px;color:var(--mu);margin:0 0 10px}
 .trs{list-style:none;margin:0;padding:0}
-.tr a{display:grid;grid-template-columns:64px 1.1fr 1.3fr 1.2fr 74px;gap:10px;align-items:center;padding:10px 4px;border-top:1px solid var(--ln);text-decoration:none}
+.tr a{display:grid;grid-template-columns:64px 1.1fr 1.3fr 1.2fr 86px;gap:10px;align-items:center;padding:10px 4px;border-top:1px solid var(--ln);text-decoration:none}
 .tr a:hover{background:var(--hl)}
 .sym{font:700 18px 'Barlow Condensed',sans-serif;letter-spacing:.03em;text-decoration:none}.sym.big{display:inline-block;font-size:.9em;background:var(--ink);color:var(--pa);padding:0 8px;margin-right:10px;border-radius:2px}
 .tr .co{font-weight:700;font-size:14.5px;line-height:1.4}.tr .who{font-size:14px;line-height:1.35}.tr small{display:block;font-size:12px;color:var(--mu)}
 .tr .amt b{font:700 24px/1.1 'Barlow Condensed',sans-serif}.tr .amt b i{font:700 12px 'Zen Kaku Gothic New',sans-serif;font-style:normal;margin-left:2px}
 .tr.b .amt b{color:var(--buy)}.tr.s .amt b{color:var(--sell)}.tr .dt{font:600 15px 'Barlow Condensed',sans-serif;text-align:right}
-.tr:not(:has(.co)) a{grid-template-columns:64px 1.4fr 1.3fr 74px}
+.tr:not(:has(.co)) a{grid-template-columns:64px 1.4fr 1.3fr 86px}
 .tg{font-style:normal;font-size:11px;font-weight:700;padding:0 5px;margin-right:4px;border:1px solid;display:inline-block;line-height:1.6;vertical-align:2px}
 .tg.b{color:var(--buy)}.tg.s{color:var(--sell)}.tg.p{color:var(--plan)}
 .more{display:inline-block;margin-top:10px;font-weight:700}
