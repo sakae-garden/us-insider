@@ -1,0 +1,26 @@
+name: update
+on:
+  schedule:
+    - cron: '23 1,13 * * 2-6'   # 平日の米国市場の後（日本時間 10:23・22:23）
+  push:
+    branches: [main]
+    paths: ['scripts/fetch.mjs', 'run.txt']
+permissions:
+  contents: write
+concurrency: { group: update, cancel-in-progress: false }
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22' }
+      - run: node scripts/fetch.mjs
+        env:
+          SEC_CONTACT: ${{ secrets.SEC_CONTACT }}
+      - run: |
+          git config user.name "data-bot"
+          git config user.email "data-bot@users.noreply.github.com"
+          git add data
+          git diff --cached --quiet || (git commit -qm "data: $(date -u +%FT%H)" && git push)
