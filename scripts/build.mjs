@@ -33,11 +33,13 @@ function role(t) {
   if (/chief executive|\bceo\b/i.test(ti)) out.push('CEO');
   else if (/chief financial|\bcfo\b/i.test(ti)) out.push('CFO');
   else if (/chief operating|\bcoo\b/i.test(ti)) out.push('COO');
+  else if (/vice chair/i.test(ti)) out.push('副会長');
+  else if (/vice president|\bevp\b|\bsvp\b|\bvp\b/i.test(ti)) out.push('副社長級');
   else if (/chair/i.test(ti)) out.push('会長');
-  else if (/president/i.test(ti)) out.push('社長');
+  else if (/^\s*(and\s+)?president\s*$|^president\s*(&|and)|president\s*(&|and)\s*c/i.test(ti) || /^president$/i.test(ti.trim())) out.push('社長');
+  else if (/president/i.test(ti)) out.push('部門責任者');
   else if (/general counsel|chief legal/i.test(ti)) out.push('法務責任者');
   else if (/chief .*officer|\bc[a-z]o\b/i.test(ti)) out.push('経営幹部');
-  else if (/vice president|\bevp\b|\bsvp\b|\bvp\b/i.test(ti)) out.push('副社長級');
   else if (ti) out.push('役員');
   if (t.dir) out.push('取締役');
   if (t.ten) out.push('大株主（10%以上）');
@@ -55,7 +57,7 @@ for (const [acc, t] of Object.entries(trades)) {
     const shares = tx.reduce((s, x) => s + x.shares, 0), value = tx.reduce((s, x) => s + x.shares * x.price, 0);
     if (!value) continue;
     const dates = tx.map((x) => x.date.slice(0, 10)).sort();
-    rows.push({ acc, sym, cik: iss.cik || t.cik, co: c.ja || cap(iss.name || c.name || sym), en: cap(iss.name || c.name || ''), code, shares, value, avg: value / shares, d0: dates[0], d1: dates[dates.length - 1], filed: t.filed, owner: personName(t.owner), role: role(t), title: t.title || '', plan: code === 'S' && t.plan, after: tx[tx.length - 1].after, pct: (() => { const af = tx[tx.length - 1].after; const before = code === 'P' ? af - shares : af + shares; return before > 0 ? shares / before : null; })() });
+    rows.push({ acc, sym, cik: iss.cik || t.cik, co: c.ja || cap(iss.name || c.name || sym), en: cap(iss.name || c.name || ''), code, shares, value, avg: value / shares, d0: dates[0], d1: dates[dates.length - 1], filed: t.filed, owner: personName(t.owner), role: role(t), officer: !!(t.dir || t.title), title: t.title || '', plan: code === 'S' && t.plan, after: tx[tx.length - 1].after, pct: (() => { const af = tx[tx.length - 1].after; const before = code === 'P' ? af - shares : af + shares; return before > 0 ? shares / before : null; })() });
   }
 }
 rows.sort((a, b) => (a.filed < b.filed ? 1 : a.filed > b.filed ? -1 : b.value - a.value));
@@ -78,7 +80,7 @@ function flowChart(list, n = 45, label = '', H = 240) {
 }
 
 const tag = (r) => (r.code === 'P' ? '<i class="tg b">買い</i>' : `<i class="tg s">売り</i>${r.plan ? '<i class="tg p">計画売却</i>' : ''}`);
-const line = (r, withCo = true) => `<li class="tr ${r.code === 'P' ? 'b' : 's'}"><a href="/stock/${r.sym}/"><span class="sym">${esc(r.sym)}</span>${withCo ? `<span class="co">${esc(r.co)}</span>` : ''}<span class="who">${esc(r.owner)}<small>${esc(r.role)}</small></span><span class="amt">${tag(r)}<b>${usdB(r.value)}</b><small>${nf(r.shares)}株・平均${r.avg.toFixed(2)}ドル${r.pct != null && r.pct < 50 ? `・持ち株の${r.code === 'P' ? '+' : '−'}${r.pct >= 0.995 ? Math.round(r.pct * 100) : (r.pct * 100).toFixed(r.pct < 0.1 ? 1 : 0)}%` : ''}</small></span><span class="dt">取引 ${md(r.d1)}<small>報告 ${md(r.filed)}</small></span></a></li>`;
+const line = (r, withCo = true) => `<li class="tr ${r.code === 'P' ? 'b' : 's'}"><a href="/stock/${r.sym}/"><span class="sym">${esc(r.sym)}</span>${withCo ? `<span class="co">${esc(r.co)}</span>` : ''}<span class="who">${esc(r.owner)}<small>${esc(r.role)}</small></span><span class="amt">${tag(r)}<b>${usdB(r.value)}</b><small>${nf(r.shares)}株・平均${r.avg.toFixed(2)}ドル</small></span><span class="dt">取引 ${md(r.d1)}<small>報告 ${md(r.filed)}</small></span></a></li>`;
 
 function layout({ title, desc, path: p, body, index = true }) {
   return `<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -95,9 +97,9 @@ ${index ? '' : '<meta name="robots" content="noindex,follow">'}<meta name="color
 const updated = `<p class="note">最終更新：${esc(meta.at ? jst(meta.at).slice(0, 16).replace('T', ' ') : today)}（平日1日2回、自動更新）</p>`;
 
 // 複数の役員が近い時期に買った会社（30日以内に2人以上）
-const clusters = Object.entries(bySym).map(([sym, l]) => { const b = l.filter((r) => r.code === 'P' && r.d1 >= cutoff(30)); const who = [...new Set(b.map((r) => r.owner))]; return who.length >= 2 ? { sym, co: b[0].co, who, sum: b.reduce((x, r) => x + r.value, 0), last: b[0].d1 } : null; }).filter(Boolean).sort((a, b) => b.who.length - a.who.length || b.sum - a.sum);
+const clusters = Object.entries(bySym).map(([sym, l]) => { const b = l.filter((r) => r.code === 'P' && r.officer && r.d1 >= cutoff(30)); const who = [...new Set(b.map((r) => r.owner))]; return who.length >= 2 ? { sym, co: b[0].co, who, sum: b.reduce((x, r) => x + r.value, 0), last: b[0].d1 } : null; }).filter(Boolean).sort((a, b) => b.who.length - a.who.length || b.sum - a.sum);
 // 読むときの確認点（どのページにも置く）
-const checks = `<section class="box chk"><h2>この記録を読むときの5つの確認点</h2><ol><li><b>市場での買いか</b><span>研究では、役員が市場で買ったあとは株価が平均より少し上がる傾向が見られ、売りでは差が見られないとされます。売りは税金・資産の分散など理由がさまざまです。</span></li><li><b>いつもの取引か</b><span>毎年同じ時期にくり返す「定例」の取引は情報が少なく、定例でない取引のほうが注目されるとされます。前もって決めた計画による売却（計画売却）も同じです。</span></li><li><b>1人か、複数か</b><span>複数の役員が近い時期に買ったときは、1人だけのときより注目されるとされます。</span></li><li><b>誰が、持ち株のどれだけを</b><span>CEO・CFOなど会社の中心にいる人が、持ち株を大きく増やす買いは情報が強いとされます。</span></li><li><b>会社の大きさ</b><span>こうした傾向は主に小さな会社で見られ、当サイトが扱う大きな会社では弱いとされます。</span></li></ol><p class="note">過去の研究の平均的な傾向で、個々の銘柄の値動きを示すものではありません。売買の判断材料ではなく、調べるきっかけとしてお使いください。</p></section>`;
+const checks = `<section class="box chk"><h2>この記録を読むときの5つの確認点</h2><ol><li><b>市場での買いか</b><span>研究では、役員が市場で買ったあとは株価が平均より少し上がる傾向が見られ、売りでは差が見られないとされます。売りは税金・資産の分散など理由がさまざまです。</span></li><li><b>いつもの取引か</b><span>毎年同じ時期にくり返す「定例」の取引は情報が少なく、定例でない取引のほうが注目されるとされます。前もって決めた計画による売却（計画売却）は、売る時期をその場で選んでいない点で区別されます。</span></li><li><b>1人か、複数か</b><span>複数の役員が近い時期に買ったときは、1人だけのときより注目されるとされます。</span></li><li><b>誰が買ったか</b><span>CEO・CFOなどの役職によって差があるかは、研究によって結果が分かれます。役職だけで判断しないことが大切です。</span></li><li><b>会社の大きさ</b><span>こうした傾向は主に小さな会社で見られ、当サイトが扱う大きな会社では弱いとされます。</span></li></ol><p class="note">過去の研究の平均的な傾向で、個々の銘柄の値動きを示すものではありません。売買の判断材料ではなく、調べるきっかけとしてお使いください。</p></section>`;
 // トップ
 {
   const n = 30, c = cutoff(n);
@@ -109,10 +111,10 @@ const checks = `<section class="box chk"><h2>この記録を読むときの5つ�
   const body = `<section class="hero">${flowChart(rows, 45)}
 <div class="hero-t"><h1>米国株の役員・大株主が<br>自社株を買った・売った記録</h1><p>SECに出された売買の報告（Form 4）を、時価総額の大きい米国企業${nf(Object.keys(companies).length)}社について日本語でまとめています。</p></div>
 <div class="nums"><div class="n b"><span>直近${n}日の買い</span><b>${nf(b30.length)}<i>件</i></b><small>${usd(sum(b30))}</small></div><div class="n s"><span>直近${n}日の売り</span><b>${nf(s30.length)}<i>件</i></b><small>${usd(sum(s30))}・うち計画売却${nf(plan)}件</small></div></div></section>
-${clusters.length ? `<section class="box"><h2>複数の役員が買った会社（直近30日）</h2><ul class="cls">${clusters.slice(0, 10).map((c) => `<li><a href="/stock/${c.sym}/"><span class="sym">${esc(c.sym)}</span><b>${esc(c.co)}</b><span>${c.who.length}人が買い・合計${usd(c.sum)}</span></a></li>`).join('')}</ul></section>` : ''}
+${clusters.length ? `<section class="box"><h2>複数の役員・取締役が買った会社（直近30日）</h2><ul class="cls">${clusters.slice(0, 10).map((c) => `<li><a href="/stock/${c.sym}/"><span class="sym">${esc(c.sym)}</span><b>${esc(c.co)}</b><span>${c.who.length}人が買い・合計${usd(c.sum)}</span></a></li>`).join('')}</ul></section>` : ''}
 ${ceoBuys.length ? `<section class="box"><h2>CEO・CFO・会長が自社株を買った</h2><ul class="trs">${ceoBuys.slice(0, 10).map((r) => line(r)).join('')}</ul></section>` : ''}
 <section class="box"><h2>最近の「買い」（市場で自分のお金で買ったもの）</h2><p class="lead">役員が市場で自社株を買う例は売りより少なく、見ている人が多い情報です。報酬として受け取った株や、ストックオプションの行使は含めていません。</p><ul class="trs">${buys.slice(0, 30).map((r) => line(r)).join('')}</ul><p><a class="more" href="/buys/">買いをすべて見る（${nf(buys.length)}件）</a></p></section>
-<section class="box"><h2>金額の大きい「売り」（直近${n}日）</h2><p class="lead">「計画売却」は、前もって決めた計画（10b5-1プラン）にそって自動で売ったものです。会社の先行きの判断とは関係なく、税金の支払いや資産の分散のための売却が多いとされます。</p><ul class="trs">${bigSell.map((r) => line(r)).join('')}</ul></section>
+<section class="box"><h2>金額の大きい「売り」（直近${n}日）</h2><p class="lead">「計画売却」は、前もって決めた計画（10b5-1プラン）にそって自動で売ったものです。売る時期をその場で選んでいない点で、ほかの売りと区別されます。税金の支払いや資産の分散のための売却も多いとされます。</p><ul class="trs">${bigSell.map((r) => line(r)).join('')}</ul></section>
 ${checks}${updated}`;
   write('/', layout({ title: '米国株の役員・大株主の売買（Form 4）を日本語で', desc: `米国株の役員・大株主が自社株を買った・売った記録（SEC Form 4）を日本語で毎日更新。直近${n}日の買い${b30.length}件・売り${s30.length}件。会社ごとの売買履歴も見られます。`, path: '/', body }));
 }
@@ -154,8 +156,8 @@ write('/guide/', layout({ title: 'インサイダーの売買報告（Form 4）�
 <h2>計画売却（10b5-1プラン）</h2><p>役員が前もって売る時期や数量を決めておき、その計画にそって自動で売る仕組みです。報告にこの計画への言及があるものを、当サイトでは「計画売却」と表示しています。</p>
 <h2>当サイトが含めていないもの</h2><ul><li>報酬として受け取った株（取引コード A）</li><li>ストックオプションの行使（取引コード M）</li><li>贈与（取引コード G）など、市場での売買でないもの</li></ul>
 <h2>注意</h2><p>当サイトは公開された報告を自動で集計・翻訳したもので、内容の正確さを保証するものではありません。株価の予想や売買の推奨は行っていません。</p></article>` }));
-write('/about/', layout({ title: '運営者情報', desc: `${SITE.name}の運営者情報`, path: '/about/', index: false, body: `<article class="box prose"><h1>運営者情報</h1><ul class="kv"><li><span>サイト名</span><b>${SITE.name}</b></li><li><span>運営</span><b>${SITE.operator}</b></li><li><span>お問い合わせ</span><b><a href="${SITE.contact}" target="_blank" rel="noopener">お問い合わせフォーム</a></b></li></ul><h2>データについて</h2><p>米国証券取引委員会（SEC）のEDGARで公開されている Form 4 を、SECの利用ルールにそって取得しています。会社名の日本語表記の一部は Wikidata（CC0）を使っています。</p><h2>免責</h2><p>掲載内容は投資の勧誘や助言ではありません。投資の判断はご自身でお願いします。</p></article>` }));
-write('/privacy/', layout({ title: 'プライバシーポリシー', desc: 'プライバシーポリシー', path: '/privacy/', index: false, body: `<article class="box prose"><h1>プライバシーポリシー</h1><h2>広告について</h2><p>当サイトは第三者配信の広告サービス（Google アドセンス）を利用しています。広告配信事業者は、ユーザーの興味に応じた広告を表示するために Cookie を使用することがあります。Cookie を無効にする設定やGoogleアドセンスに関する詳細は「<a href="https://policies.google.com/technologies/ads?hl=ja" target="_blank" rel="noopener">広告 – ポリシーと規約 – Google</a>」をご覧ください。</p><h2>アクセス解析について</h2><p>当サイトは Google アナリティクスを利用しています。データは匿名で収集され、個人を特定するものではありません。</p><h2>免責事項</h2><p>当サイトの情報の正確性には注意していますが、内容を保証するものではありません。当サイトの情報によって生じた損害について責任を負いかねます。</p></article>` }));
+write('/about/', layout({ title: '運営者情報', desc: `${SITE.name}の運営者情報`, path: '/about/', index: false, body: `<article class="box prose"><h1>運営者情報</h1><ul class="kv"><li><span>サイト名</span><b>${SITE.name}</b></li><li><span>運営</span><b>${SITE.operator}</b></li><li><span>お問い合わせ</span><b><a href="${SITE.contact}" target="_blank" rel="noopener">お問い合わせフォーム</a></b></li></ul><h2>データについて</h2><p>米国証券取引委員会（SEC）のEDGARで公開されている Form 4 を、SECの利用ルールにそって取得しています。会社名の日本語表記の一部は Wikidata（CC0）を使っています。</p><h2>免責</h2><p>掲載内容は投資の勧誘や助言ではありません。投資の判断はご自身でお願いします。</p></article>` }), false);
+write('/privacy/', layout({ title: 'プライバシーポリシー', desc: 'プライバシーポリシー', path: '/privacy/', index: false, body: `<article class="box prose"><h1>プライバシーポリシー</h1><h2>広告について</h2><p>当サイトは第三者配信の広告サービス（Google アドセンス）を利用しています。広告配信事業者は、ユーザーの興味に応じた広告を表示するために Cookie を使用することがあります。Cookie を無効にする設定やGoogleアドセンスに関する詳細は「<a href="https://policies.google.com/technologies/ads?hl=ja" target="_blank" rel="noopener">広告 – ポリシーと規約 – Google</a>」をご覧ください。</p><h2>アクセス解析について</h2><p>当サイトは Google アナリティクスを利用しています。データは匿名で収集され、個人を特定するものではありません。</p><h2>免責事項</h2><p>当サイトの情報の正確性には注意していますが、内容を保証するものではありません。当サイトの情報によって生じた損害について責任を負いかねます。</p></article>` }), false);
 
 // 静的ファイル
 fs.cpSync(path.join(ROOT, 'static'), DIST, { recursive: true });

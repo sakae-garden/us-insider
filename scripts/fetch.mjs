@@ -66,7 +66,7 @@ for (const c of list) {
       const t = m[1];
       return { date: tag(t, 'transactionDate'), code: tag(t, 'transactionCode'), shares: +tag(t, 'transactionShares') || 0, price: +tag(t, 'transactionPricePerShare') || 0, ad: tag(t, 'transactionAcquiredDisposedCode'), after: +tag(t, 'sharesOwnedFollowingTransaction') || 0 };
     }).filter((t) => t.code === 'P' || t.code === 'S');
-    const plan = /10b5-1/i.test(xml);
+    const aff = xml.match(/<aff10b5One>\s*(?:<value>)?\s*([^<\s]+)/); const plan = aff ? /^(1|true)$/i.test(aff[1]) : /10b5-1/i.test(xml); // 新しい様式はチェック欄、古い様式は注記の文言で判定
     const iss = { cik: String(+tag(xml, 'issuerCik') || ''), name: tag(xml, 'issuerName'), sym: tag(xml, 'issuerTradingSymbol').toUpperCase() };
     trades[acc] = { cik: iss.cik || c.cik, iss, filed: r.filingDate[i], owner, title, dir: isDir, ten: isTen, plan, tx };
     seen.add(acc); nf++;
