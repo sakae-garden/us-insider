@@ -22,7 +22,7 @@ const sitemap = [];
 function write(p, html, index = true) { const f = path.join(DIST, p.endsWith('/') ? p + 'index.html' : p); fs.mkdirSync(path.dirname(f), { recursive: true }); fs.writeFileSync(f, html); if (index) sitemap.push(SITE.url + p); }
 
 // 名前・役職
-const cap = (s) => String(s || '').toLowerCase().replace(/(^|[\s\-'.])([a-z])/g, (m, a, b) => a + b.toUpperCase());
+const cap = (s) => String(s || '').replace(/\s*\/[a-z]{1,4}\/?\s*$/i, '').replace(/\s*\/[a-z]{1,4}\/\s*/ig, ' ').toLowerCase().replace(/(^|[\s\-'.])([a-z])/g, (m, a, b) => a + b.toUpperCase());
 function personName(n) { // SECは「姓 名 ミドル」の順。会社名らしいものはそのまま
   if (/\b(INC|LLC|L\.?P\.?|CORP|CO|LTD|TRUST|FUND|HOLDINGS?|PARTNERS|GROUP|CAPITAL|MANAGEMENT|FOUNDATION|PLC|N\.?A\.?)\b/i.test(n)) return cap(n).replace(/\bInc\b/, 'Inc.').replace(/\bLlc\b/, 'LLC').replace(/\bL\.p\./i, 'L.P.');
   const w = String(n).trim().split(/\s+/); if (w.length < 2) return cap(n);
@@ -55,7 +55,7 @@ for (const [acc, t] of Object.entries(trades)) {
     const shares = tx.reduce((s, x) => s + x.shares, 0), value = tx.reduce((s, x) => s + x.shares * x.price, 0);
     if (!value) continue;
     const dates = tx.map((x) => x.date.slice(0, 10)).sort();
-    rows.push({ acc, sym, cik: iss.cik || t.cik, co: c.ja || cap(iss.name || c.name || sym), en: cap(iss.name || c.name || ''), code, shares, value, avg: value / shares, d0: dates[0], d1: dates[dates.length - 1], filed: t.filed, owner: personName(t.owner), role: role(t), title: t.title || '', plan: code === 'S' && t.plan, after: tx[tx.length - 1].after });
+    rows.push({ acc, sym, cik: iss.cik || t.cik, co: c.ja || cap(iss.name || c.name || sym), en: cap(iss.name || c.name || ''), code, shares, value, avg: value / shares, d0: dates[0], d1: dates[dates.length - 1], filed: t.filed, owner: personName(t.owner), role: role(t), title: t.title || '', plan: code === 'S' && t.plan, after: tx[tx.length - 1].after, pct: (() => { const af = tx[tx.length - 1].after; const before = code === 'P' ? af - shares : af + shares; return before > 0 ? shares / before : null; })() });
   }
 }
 rows.sort((a, b) => (a.filed < b.filed ? 1 : a.filed > b.filed ? -1 : b.value - a.value));
@@ -78,7 +78,7 @@ function flowChart(list, n = 45, label = '', H = 240) {
 }
 
 const tag = (r) => (r.code === 'P' ? '<i class="tg b">買い</i>' : `<i class="tg s">売り</i>${r.plan ? '<i class="tg p">計画売却</i>' : ''}`);
-const line = (r, withCo = true) => `<li class="tr ${r.code === 'P' ? 'b' : 's'}"><a href="/stock/${r.sym}/"><span class="sym">${esc(r.sym)}</span>${withCo ? `<span class="co">${esc(r.co)}</span>` : ''}<span class="who">${esc(r.owner)}<small>${esc(r.role)}</small></span><span class="amt">${tag(r)}<b>${usdB(r.value)}</b><small>${nf(r.shares)}株・平均${r.avg.toFixed(2)}ドル</small></span><span class="dt">取引 ${md(r.d1)}<small>報告 ${md(r.filed)}</small></span></a></li>`;
+const line = (r, withCo = true) => `<li class="tr ${r.code === 'P' ? 'b' : 's'}"><a href="/stock/${r.sym}/"><span class="sym">${esc(r.sym)}</span>${withCo ? `<span class="co">${esc(r.co)}</span>` : ''}<span class="who">${esc(r.owner)}<small>${esc(r.role)}</small></span><span class="amt">${tag(r)}<b>${usdB(r.value)}</b><small>${nf(r.shares)}株・平均${r.avg.toFixed(2)}ドル${r.pct != null && r.pct < 50 ? `・持ち株の${r.code === 'P' ? '+' : '−'}${r.pct >= 0.995 ? Math.round(r.pct * 100) : (r.pct * 100).toFixed(r.pct < 0.1 ? 1 : 0)}%` : ''}</small></span><span class="dt">取引 ${md(r.d1)}<small>報告 ${md(r.filed)}</small></span></a></li>`;
 
 function layout({ title, desc, path: p, body, index = true }) {
   return `<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -94,6 +94,10 @@ ${index ? '' : '<meta name="robots" content="noindex,follow">'}<meta name="color
 }
 const updated = `<p class="note">最終更新：${esc(meta.at ? jst(meta.at).slice(0, 16).replace('T', ' ') : today)}（平日1日2回、自動更新）</p>`;
 
+// 複数の役員が近い時期に買った会社（30日以内に2人以上）
+const clusters = Object.entries(bySym).map(([sym, l]) => { const b = l.filter((r) => r.code === 'P' && r.d1 >= cutoff(30)); const who = [...new Set(b.map((r) => r.owner))]; return who.length >= 2 ? { sym, co: b[0].co, who, sum: b.reduce((x, r) => x + r.value, 0), last: b[0].d1 } : null; }).filter(Boolean).sort((a, b) => b.who.length - a.who.length || b.sum - a.sum);
+// 読むときの確認点（どのページにも置く）
+const checks = `<section class="box chk"><h2>この記録を読むときの5つの確認点</h2><ol><li><b>市場での買いか</b><span>研究では、役員が市場で買ったあとは株価が平均より少し上がる傾向が見られ、売りでは差が見られないとされます。売りは税金・資産の分散など理由がさまざまです。</span></li><li><b>いつもの取引か</b><span>毎年同じ時期にくり返す「定例」の取引は情報が少なく、定例でない取引のほうが注目されるとされます。前もって決めた計画による売却（計画売却）も同じです。</span></li><li><b>1人か、複数か</b><span>複数の役員が近い時期に買ったときは、1人だけのときより注目されるとされます。</span></li><li><b>誰が、持ち株のどれだけを</b><span>CEO・CFOなど会社の中心にいる人が、持ち株を大きく増やす買いは情報が強いとされます。</span></li><li><b>会社の大きさ</b><span>こうした傾向は主に小さな会社で見られ、当サイトが扱う大きな会社では弱いとされます。</span></li></ol><p class="note">過去の研究の平均的な傾向で、個々の銘柄の値動きを示すものではありません。売買の判断材料ではなく、調べるきっかけとしてお使いください。</p></section>`;
 // トップ
 {
   const n = 30, c = cutoff(n);
@@ -105,15 +109,16 @@ const updated = `<p class="note">最終更新：${esc(meta.at ? jst(meta.at).sli
   const body = `<section class="hero">${flowChart(rows, 45)}
 <div class="hero-t"><h1>米国株の役員・大株主が<br>自社株を買った・売った記録</h1><p>SECに出された売買の報告（Form 4）を、時価総額の大きい米国企業${nf(Object.keys(companies).length)}社について日本語でまとめています。</p></div>
 <div class="nums"><div class="n b"><span>直近${n}日の買い</span><b>${nf(b30.length)}<i>件</i></b><small>${usd(sum(b30))}</small></div><div class="n s"><span>直近${n}日の売り</span><b>${nf(s30.length)}<i>件</i></b><small>${usd(sum(s30))}・うち計画売却${nf(plan)}件</small></div></div></section>
+${clusters.length ? `<section class="box"><h2>複数の役員が買った会社（直近30日）</h2><ul class="cls">${clusters.slice(0, 10).map((c) => `<li><a href="/stock/${c.sym}/"><span class="sym">${esc(c.sym)}</span><b>${esc(c.co)}</b><span>${c.who.length}人が買い・合計${usd(c.sum)}</span></a></li>`).join('')}</ul></section>` : ''}
 ${ceoBuys.length ? `<section class="box"><h2>CEO・CFO・会長が自社株を買った</h2><ul class="trs">${ceoBuys.slice(0, 10).map((r) => line(r)).join('')}</ul></section>` : ''}
 <section class="box"><h2>最近の「買い」（市場で自分のお金で買ったもの）</h2><p class="lead">役員が市場で自社株を買う例は売りより少なく、見ている人が多い情報です。報酬として受け取った株や、ストックオプションの行使は含めていません。</p><ul class="trs">${buys.slice(0, 30).map((r) => line(r)).join('')}</ul><p><a class="more" href="/buys/">買いをすべて見る（${nf(buys.length)}件）</a></p></section>
 <section class="box"><h2>金額の大きい「売り」（直近${n}日）</h2><p class="lead">「計画売却」は、前もって決めた計画（10b5-1プラン）にそって自動で売ったものです。会社の先行きの判断とは関係なく、税金の支払いや資産の分散のための売却が多いとされます。</p><ul class="trs">${bigSell.map((r) => line(r)).join('')}</ul></section>
-${updated}`;
+${checks}${updated}`;
   write('/', layout({ title: '米国株の役員・大株主の売買（Form 4）を日本語で', desc: `米国株の役員・大株主が自社株を買った・売った記録（SEC Form 4）を日本語で毎日更新。直近${n}日の買い${b30.length}件・売り${s30.length}件。会社ごとの売買履歴も見られます。`, path: '/', body }));
 }
 
 // 買い一覧
-write('/buys/', layout({ title: '米国株 役員の自社株買い一覧', desc: `米国株の役員・大株主が市場で自社株を買った記録の一覧（${buys.length}件、SEC Form 4）。`, path: '/buys/', body: `<section class="hero sm">${flowChart(buys, 45, '日ごとの買いの金額（直近45日）')}<div class="hero-t"><h1>役員・大株主の自社株買い 一覧</h1><p>市場で自分のお金で買ったもの（取引コード P）だけを、報告日の新しい順に並べています。</p></div></section><section class="box"><ul class="trs">${buys.map((r) => line(r)).join('')}</ul></section>${updated}` }));
+write('/buys/', layout({ title: '米国株 役員の自社株買い一覧', desc: `米国株の役員・大株主が市場で自社株を買った記録の一覧（${buys.length}件、SEC Form 4）。`, path: '/buys/', body: `<section class="hero sm">${flowChart(buys, 45, '日ごとの買いの金額（直近45日）')}<div class="hero-t"><h1>役員・大株主の自社株買い 一覧</h1><p>市場で自分のお金で買ったもの（取引コード P）だけを、報告日の新しい順に並べています。</p></div></section><section class="box"><ul class="trs">${buys.map((r) => line(r)).join('')}</ul></section>${checks}${updated}` }));
 
 // 会社ページ
 const coList = [];
@@ -122,17 +127,24 @@ for (const [sym, list] of Object.entries(bySym)) {
   const sb = b.reduce((x, r) => x + r.value, 0), ss = s.reduce((x, r) => x + r.value, 0), pl = s.filter((r) => r.plan).length;
   const people = [...new Set(list.map((r) => r.owner))];
   coList.push({ sym, co: r0.co, en: r0.en, nb: b.length, ns: s.length, sb, ss, last: list[0].filed });
-  const sumText = `${r0.co}（${sym}）では、当サイトの記録のある期間に、役員・大株主による市場での${[b.length ? `買いが${b.length}件（${usd(sb)}）` : '', s.length ? `売りが${s.length}件（${usd(ss)}）` : ''].filter(Boolean).join('、')}ありました。${s.length ? `売りのうち${pl}件は前もって決めた計画にそった売却です。` : ''}`;
+  const sumText = `${r0.co}（${sym}）では、当サイトの記録のある期間に、役員・大株主による市場での${[b.length ? `買いが${b.length}件（${usd(sb)}）` : '', s.length ? `売りが${s.length}件（${usd(ss)}）` : ''].filter(Boolean).join('、')}ありました。${s.length ? `売りのうち${pl}件は前もって決めた計画にそった売却です。` : ''}${b.length ? `買ったのは${[...new Set(b.map((r) => `${r.owner}（${r.role}）`))].slice(0, 3).join('、')}${new Set(b.map((r) => r.owner)).size > 3 ? 'など' : ''}です。` : '市場での買いはありません。'}`;
   const body = `<section class="hero sm">${flowChart(list, 90, `${r0.co}（${sym}）の日ごとの買い・売り（直近90日）`, 180)}
 <div class="hero-t"><p class="crumbs"><a href="/">トップ</a> › <a href="/companies/">会社一覧</a></p><h1><span class="sym big">${esc(sym)}</span>${esc(r0.co)}の役員・大株主の売買</h1>${r0.en && r0.en !== r0.co ? `<p class="en">${esc(r0.en)}</p>` : ''}</div>
 <div class="nums"><div class="n b"><span>買い</span><b>${b.length}<i>件</i></b><small>${usd(sb)}</small></div><div class="n s"><span>売り</span><b>${s.length}<i>件</i></b><small>${usd(ss)}${pl ? `・計画売却${pl}件` : ''}</small></div><div class="n"><span>報告した人</span><b>${people.length}<i>人</i></b><small>最終報告 ${md(r0.filed)}</small></div></div></section>
 <section class="box"><p class="lead">${esc(sumText)}</p><ul class="trs">${list.map((r) => line(r, false)).join('')}</ul></section>
-<section class="box"><h2>この記録の見方</h2><ul class="kv"><li><span>買い</span><b>役員などが市場で自分のお金で買ったもの（取引コード P）</b></li><li><span>売り</span><b>市場で売ったもの（取引コード S）</b></li><li><span>計画売却</span><b>前もって決めた計画（10b5-1プラン）にそった売却</b></li><li><span>平均</span><b>報告書にある1株あたりの取引価格の平均</b></li></ul><p class="note">報酬として受け取った株やストックオプションの行使は含めていません。原文は <a href="https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=${esc(r0.cik)}&type=4" target="_blank" rel="noopener">SEC EDGAR</a> で確認できます。</p></section>
+${checks}<section class="box"><h2>この記録の見方</h2><ul class="kv"><li><span>買い</span><b>役員などが市場で自分のお金で買ったもの（取引コード P）</b></li><li><span>売り</span><b>市場で売ったもの（取引コード S）</b></li><li><span>計画売却</span><b>前もって決めた計画（10b5-1プラン）にそった売却</b></li><li><span>平均</span><b>報告書にある1株あたりの取引価格の平均</b></li></ul><p class="note">報酬として受け取った株やストックオプションの行使は含めていません。原文は <a href="https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=${esc(r0.cik)}&type=4" target="_blank" rel="noopener">SEC EDGAR</a> で確認できます。</p></section>
 ${updated}`;
   write(`/stock/${sym}/`, layout({ title: `${r0.co}（${sym}）の役員の自社株売買・インサイダー取引の開示`, desc: sumText, path: `/stock/${sym}/`, body }), list.length >= 1);
 }
+// 取引の報告がない会社も、検索して来た人のためにページを作る（検索エンジンには出さない）
+for (const c of Object.values(companies)) {
+  const sym = String(c.ticker || '').toUpperCase().replace(/[^A-Z0-9.\-]/g, ''); if (!sym || bySym[sym]) continue;
+  const co = c.ja || cap(c.name);
+  write(`/stock/${sym}/`, layout({ title: `${co}（${sym}）の役員の自社株売買`, desc: `${co}（${sym}）の役員・大株主の売買の報告（Form 4）。`, path: `/stock/${sym}/`, index: false, body: `<section class="hero sm">${flowChart([], 90, `${co}（${sym}）の日ごとの買い・売り（直近90日）`, 120)}<div class="hero-t"><p class="crumbs"><a href="/">トップ</a> › <a href="/companies/">会社一覧</a></p><h1><span class="sym big">${esc(sym)}</span>${esc(co)}の役員・大株主の売買</h1></div></section><section class="box"><p class="lead">当サイトの記録のある期間に、役員・大株主による市場での買い・売りの報告はありません（報酬として受け取った株やオプションの行使は含めていません）。</p></section>${checks}${updated}` }), false);
+  coList.push({ sym, co, en: cap(c.name), nb: 0, ns: 0, sb: 0, ss: 0, last: '' });
+}
 coList.sort((a, b) => b.nb - a.nb || b.sb + b.ss - (a.sb + a.ss));
-write('/companies/', layout({ title: '会社一覧（役員の売買があった米国企業）', desc: `役員・大株主の売買の報告があった米国企業${coList.length}社の一覧。`, path: '/companies/', body: `<section class="hero sm">${flowChart(rows, 45)}<div class="hero-t"><h1>会社一覧</h1><p>役員・大株主の売買の報告があった${coList.length}社。買いの件数が多い順です。</p></div></section><section class="box"><table class="cl"><thead><tr><th>銘柄</th><th>会社</th><th class="r">買い</th><th class="r">売り</th><th class="r">最終報告</th></tr></thead><tbody>${coList.map((c) => `<tr><td><a class="sym" href="/stock/${c.sym}/">${esc(c.sym)}</a></td><td><a href="/stock/${c.sym}/">${esc(c.co)}</a></td><td class="r b">${c.nb ? `${c.nb}件<small>${usd(c.sb)}</small>` : '—'}</td><td class="r s">${c.ns ? `${c.ns}件<small>${usd(c.ss)}</small>` : '—'}</td><td class="r">${md(c.last)}</td></tr>`).join('')}</tbody></table></section>${updated}` }));
+write('/companies/', layout({ title: '会社一覧（米国株の役員の売買）', desc: `時価総額の大きい米国企業${coList.length}社の、役員・大株主の売買の件数の一覧。ティッカーや日本語の会社名で探せます。`, path: '/companies/', body: `<section class="hero sm">${flowChart(rows, 45)}<div class="hero-t"><h1>会社一覧</h1><p>時価総額の大きい米国企業${coList.length}社。役員・大株主の買いの件数が多い順です。</p></div></section><section class="box"><input class="q" type="search" placeholder="ティッカーか会社名で探す（例：NVDA、エヌビディア）" oninput="var q=this.value.toLowerCase();document.querySelectorAll('.cl tbody tr').forEach(function(r){r.hidden=q&&r.textContent.toLowerCase().indexOf(q)<0})"><table class="cl"><thead><tr><th>銘柄</th><th>会社</th><th class="r">買い</th><th class="r">売り</th><th class="r">最終報告</th></tr></thead><tbody>${coList.map((c) => `<tr><td><a class="sym" href="/stock/${c.sym}/">${esc(c.sym)}</a></td><td><a href="/stock/${c.sym}/">${esc(c.co)}</a><small>${esc(c.en)}</small></td><td class="r b">${c.nb ? `${c.nb}件<small>${usd(c.sb)}</small>` : '—'}</td><td class="r s">${c.ns ? `${c.ns}件<small>${usd(c.ss)}</small>` : '—'}</td><td class="r">${md(c.last) || '—'}</td></tr>`).join('')}</tbody></table></section>${updated}` }));
 
 // 読み方・運営者情報・プライバシー
 const guideArt = `<svg class="gart" viewBox="0 0 720 200" role="img" aria-label="Form 4 の流れ"><g class="gs"><rect x="20" y="50" width="180" height="100"/><rect x="270" y="50" width="180" height="100"/><rect x="520" y="50" width="180" height="100"/></g><g class="ga"><path d="M205 100h55M455 100h55"/></g><text x="110" y="95" class="gt">役員・大株主が</text><text x="110" y="120" class="gt">自社株を売買</text><text x="360" y="95" class="gt">2営業日以内に</text><text x="360" y="120" class="gt">SECへ Form 4</text><text x="610" y="95" class="gt">当サイトが</text><text x="610" y="120" class="gt">日本語で集計</text></svg>`;

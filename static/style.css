@@ -42,3 +42,7 @@ footer{max-width:980px;margin:0 auto;padding:20px 14px 40px;font-size:12.5px;col
 @media(max-width:720px){.tr a,.tr:not(:has(.co)) a{grid-template-columns:56px 1fr auto;grid-template-areas:"s c d" "s w w" "s m m"}
 .tr .sym{grid-area:s;align-self:start}.tr .co{grid-area:c}.tr .who{grid-area:w}.tr .amt{grid-area:m}.tr .dt{grid-area:d;align-self:start}
 .tr:not(:has(.co)) .who{grid-area:c}.n b{font-size:38px}.cl th:nth-child(5),.cl td:nth-child(5){display:none}}
+.chk ol{margin:0;padding-left:1.4em}.chk li{margin:0 0 10px}.chk li b{display:block}.chk li span{font-size:14px;color:var(--mu)}
+.cls{list-style:none;margin:0;padding:0}.cls a{display:grid;grid-template-columns:64px 1fr auto;gap:10px;padding:9px 4px;border-top:1px solid var(--ln);text-decoration:none;align-items:center}.cls a:hover{background:var(--hl)}.cls span:last-child{color:var(--buy);font-weight:700;font-size:14px}
+.q{width:100%;font:inherit;padding:10px 12px;border:2px solid var(--ink);background:var(--pa);color:var(--ink);margin-bottom:10px;border-radius:2px}
+@media(max-width:560px){.cls a{grid-template-columns:56px 1fr}.cls span:last-child{grid-column:2}}
