@@ -49,7 +49,7 @@ for (let i = 0; i < need.length; i += 100) {
 
 // Form 4
 const trades = read('trades.json', {});
-const seen = new Set(Object.keys(trades));
+const seen = new Set(Object.entries(trades).filter(([, v]) => v.skip || v.iss).map(([k]) => k)); // 発行会社（iss）が無い旧形式は取り直す
 const tag = (x, t) => { const m = x.match(new RegExp(`<${t}>([\\s\\S]*?)</${t}>`)); return m ? m[1].replace(/<value>|<\/value>/g, '').replace(/<[^>]+>/g, '').trim() : ''; };
 let nf = 0;
 for (const c of list) {
@@ -67,7 +67,8 @@ for (const c of list) {
       return { date: tag(t, 'transactionDate'), code: tag(t, 'transactionCode'), shares: +tag(t, 'transactionShares') || 0, price: +tag(t, 'transactionPricePerShare') || 0, ad: tag(t, 'transactionAcquiredDisposedCode'), after: +tag(t, 'sharesOwnedFollowingTransaction') || 0 };
     }).filter((t) => t.code === 'P' || t.code === 'S');
     const plan = /10b5-1/i.test(xml);
-    trades[acc] = { cik: c.cik, filed: r.filingDate[i], owner, title, dir: isDir, ten: isTen, plan, tx };
+    const iss = { cik: String(+tag(xml, 'issuerCik') || ''), name: tag(xml, 'issuerName'), sym: tag(xml, 'issuerTradingSymbol').toUpperCase() };
+    trades[acc] = { cik: iss.cik || c.cik, iss, filed: r.filingDate[i], owner, title, dir: isDir, ten: isTen, plan, tx };
     seen.add(acc); nf++;
   }
 }
