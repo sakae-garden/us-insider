@@ -23,4 +23,4 @@ jobs:
           git config user.name "data-bot"
           git config user.email "data-bot@users.noreply.github.com"
           git add data
-          git diff --cached --quiet || (git commit -qm "data: $(date -u +%FT%H)" && git push)
+          git diff --cached --quiet || (git commit -qm "data: $(date -u +%FT%H)" && (git push || (git pull --rebase -X theirs && git push)))
