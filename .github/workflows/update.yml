@@ -2,6 +2,7 @@ name: update
 on:
   schedule:
     - cron: '23 1,13 * * 2-6'   # 平日の米国市場の後（日本時間 10:23・22:23）
+  workflow_dispatch:
   push:
     branches: [main]
     paths: ['scripts/fetch.mjs', 'run.txt']
