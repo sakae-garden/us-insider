@@ -65,20 +65,19 @@ const buys = rows.filter((r) => r.code === 'P'), sells = rows.filter((r) => r.co
 const bySym = {}; for (const r of rows) (bySym[r.sym] ||= []).push(r);
 const cutoff = (n) => jst(Date.now() - n * 864e5).slice(0, 10);
 
-// 日ごとの買い・売りの金額（SVG）。上が買い、下が売り
-function flowChart(list, n = 45, label = '', H = 240) {
-  // 日ごとだと棒が細かすぎて読めないので、週ごと（7日ずつ）にまとめて表示する
-  const weeks = Math.ceil(n / 7), days = []; for (let i = weeks * 7 - 1; i >= 0; i--) days.push(cutoff(i));
-  const wk = Array.from({ length: weeks }, (_, k) => ({ from: days[k * 7], to: days[k * 7 + 6], b: 0, s: 0 }));
-  const idx = Object.fromEntries(days.map((d, i) => [d, Math.floor(i / 7)]));
-  for (const r of list) { const k = idx[r.d1]; if (k == null) continue; if (r.code === 'P') wk[k].b += r.value; else wk[k].s += r.value; }
-  const W = 400, top = 30, bot = 34, mid = top + (H - top - bot) / 2, room = (H - top - bot) / 2 - 16, bw = (W - 24) / weeks;
-  const mb = Math.max(1, ...wk.map((w) => w.b)), ms = Math.max(1, ...wk.map((w) => w.s));
+// 週ごとの買い・売りの金額（SVG）。上が買い、下が売り。週は月曜始まりで、いちばん右は今週（途中まで）
+function flowChart(list, weeks = 7, label = '', H = 240) {
+  const t = cutoff(0), dow = (new Date(t + 'T00:00:00Z').getUTCDay() + 6) % 7; // 0=月曜
+  const addD = (d, k) => new Date(Date.parse(d + 'T00:00:00Z') + k * 864e5).toISOString().slice(0, 10);
+  const mon0 = addD(t, -dow), wk = Array.from({ length: weeks }, (_, k) => ({ from: addD(mon0, (k - weeks + 1) * 7), b: 0, s: 0 }));
+  for (const r of list) { if (!r.d1 || r.d1 < wk[0].from || r.d1 > t) continue; const k = Math.floor((Date.parse(r.d1 + 'T00:00:00Z') - Date.parse(wk[0].from + 'T00:00:00Z')) / (7 * 864e5)); if (k < 0 || k >= weeks) continue; if (r.code === 'P') wk[k].b += r.value; else wk[k].s += r.value; }
+  const W = 400, top = 30, bot = 48, mid = top + (H - top - bot) / 2, room = (H - top - bot) / 2 - 18, bw = (W - 24) / weeks;
+  const mb = Math.max(1, ...wk.map((w) => w.b)), ms = Math.max(1, ...wk.map((w) => w.s)), none = !wk.some((w) => w.b || w.s);
   const sc = (v, m) => (v ? Math.max(3, Math.sqrt(v / m) * room) : 0); // 金額の幅が大きいので平方根で縮める
-  const short = (v) => (v >= 1e8 ? `${(v / 1e8).toFixed(1)}億` : v >= 1e4 ? `${Math.round(v / 1e4)}万` : v ? '1万未満' : '');
+  const short = (v) => { if (!v) return ''; if (v < 1e4) return '<1万'; if (v < 1e5) return `${(v / 1e4).toFixed(1)}万`; const m = Math.round(v / 1e4); return m >= 10000 ? `${(v / 1e8).toFixed(1)}億` : `${m}万`; };
   const bars = wk.map((w, k) => { const x = 12 + k * bw, cx = (x + bw / 2).toFixed(1), hb = sc(w.b, mb), hs = sc(w.s, ms);
-    return `${w.b ? `<rect class="by" x="${(x + 3).toFixed(1)}" y="${(mid - hb).toFixed(1)}" width="${(bw - 6).toFixed(1)}" height="${hb.toFixed(1)}" rx="2"/><text class="v by-t" x="${cx}" y="${(mid - hb - 4).toFixed(1)}">${short(w.b)}</text>` : ''}${w.s ? `<rect class="sl" x="${(x + 3).toFixed(1)}" y="${mid}" width="${(bw - 6).toFixed(1)}" height="${hs.toFixed(1)}" rx="2"/><text class="v sl-t" x="${cx}" y="${(mid + hs + 13).toFixed(1)}">${short(w.s)}</text>` : ''}${weeks <= 8 || (weeks - 1 - k) % 2 === 0 ? `<text class="tk" x="${cx}" y="${H - 18}">${md(w.from)}〜</text>` : ''}`; }).join('');
-  return `<figure class="flow"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(label || '週ごとの買い・売りの金額')}"><line x1="8" x2="${W - 8}" y1="${mid}" y2="${mid}" class="ax"/>${bars}<text x="12" y="18" class="lb by-t">▲ 買い（ドル）</text><text x="${W - 12}" y="18" class="lb sl-t" text-anchor="end">売り（ドル）▼</text><text x="${W / 2}" y="${H - 3}" class="tk">週の始まりの日付</text></svg><figcaption>${esc(label || `週ごとの買い・売りの金額（直近${weeks}週、取引日ベース。買いと売りは別の目盛り）`)}</figcaption></figure>`;
+    return `${w.b ? `<rect class="by" x="${(x + 4).toFixed(1)}" y="${(mid - hb).toFixed(1)}" width="${(bw - 8).toFixed(1)}" height="${hb.toFixed(1)}" rx="2"/><text class="v by-t" x="${cx}" y="${(mid - hb - 5).toFixed(1)}">${short(w.b)}</text>` : ''}${w.s ? `<rect class="sl" x="${(x + 4).toFixed(1)}" y="${mid}" width="${(bw - 8).toFixed(1)}" height="${hs.toFixed(1)}" rx="2"/><text class="v sl-t" x="${cx}" y="${(mid + hs + 15).toFixed(1)}">${short(w.s)}</text>` : ''}<text class="tk" x="${cx}" y="${H - 18}">${k === weeks - 1 ? '今週' : `${md(w.from)}〜`}</text>`; }).join('');
+  return `<figure class="flow"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(label || '週ごとの買い・売りの金額')}"><line x1="8" x2="${W - 8}" y1="${mid}" y2="${mid}" class="ax"/>${bars}${none ? `<text x="${W / 2}" y="${mid - 10}" class="em">この${weeks}週間に買い・売りの報告はありません</text>` : ''}<text x="12" y="18" class="lb by-t">▲ 買い（ドル）</text><text x="${W - 12}" y="18" class="lb sl-t" text-anchor="end">売り（ドル）▼</text><text x="${W / 2}" y="${H - 3}" class="tk">週（月曜始まり）</text></svg><figcaption>${esc(label || `週ごとの買い・売りの金額（直近${weeks}週、取引日ベース）`)}。※棒の高さは金額の平方根で、買いと売りは別の目盛り。今週分は報告がそろう前のため少なめに出ます。</figcaption></figure>`;
 }
 
 const tag = (r) => (r.code === 'P' ? '<i class="tg b">買い</i>' : `<i class="tg s">売り</i>${r.plan ? '<i class="tg p">計画売却</i>' : ''}`);
@@ -110,7 +109,7 @@ const checks = `<section class="box chk"><h2>この記録を読むときの5つ�
   const plan = s30.filter((r) => r.plan).length;
   const bigSell = [...s30].sort((a, b) => b.value - a.value).slice(0, 15);
   const ceoBuys = b30.filter((r) => /CEO|CFO|会長|社長/.test(r.role));
-  const body = `<section class="hero">${flowChart(rows, 45)}
+  const body = `<section class="hero">${flowChart(rows)}
 <div class="hero-t"><h1>米国株の役員・大株主が<br>自社株を買った・売った記録</h1><p>SECに出された売買の報告（Form 4）を、時価総額の大きい米国企業${nf(Object.keys(companies).length)}社について日本語でまとめています。</p></div>
 <div class="nums"><div class="n b"><span>直近${n}日の買い</span><b>${nf(b30.length)}<i>件</i></b><small>${usd(sum(b30))}</small></div><div class="n s"><span>直近${n}日の売り</span><b>${nf(s30.length)}<i>件</i></b><small>${usd(sum(s30))}・うち計画売却${nf(plan)}件</small></div></div></section>
 ${clusters.length ? `<section class="box"><h2>複数の役員・取締役が買った会社（直近30日）</h2><ul class="cls">${clusters.slice(0, 10).map((c) => `<li><a href="/stock/${c.sym}/"><span class="sym">${esc(c.sym)}</span><b>${esc(c.co)}</b><span>${c.who.length}人が買い・合計${usd(c.sum)}</span></a></li>`).join('')}</ul></section>` : ''}
@@ -122,7 +121,7 @@ ${checks}${updated}`;
 }
 
 // 買い一覧
-write('/buys/', layout({ title: '米国株 役員の自社株買い一覧', desc: `米国株の役員・大株主が市場で自社株を買った記録の一覧（${buys.length}件、SEC Form 4）。`, path: '/buys/', body: `<section class="hero sm">${flowChart(buys, 45, '週ごとの買いの金額（直近7週）')}<div class="hero-t"><h1>役員・大株主の自社株買い 一覧</h1><p>市場で自分のお金で買ったもの（取引コード P）だけを、報告日の新しい順に並べています。</p></div></section><section class="box"><ul class="trs">${buys.map((r) => line(r)).join('')}</ul></section>${checks}${updated}` }));
+write('/buys/', layout({ title: '米国株 役員の自社株買い一覧', desc: `米国株の役員・大株主が市場で自社株を買った記録の一覧（${buys.length}件、SEC Form 4）。`, path: '/buys/', body: `<section class="hero sm">${flowChart(buys, 7, '週ごとの買いの金額（直近7週）')}<div class="hero-t"><h1>役員・大株主の自社株買い 一覧</h1><p>市場で自分のお金で買ったもの（取引コード P）だけを、報告日の新しい順に並べています。</p></div></section><section class="box"><ul class="trs">${buys.map((r) => line(r)).join('')}</ul></section>${checks}${updated}` }));
 
 // 会社ページ
 const coList = [];
@@ -132,7 +131,7 @@ for (const [sym, list] of Object.entries(bySym)) {
   const people = [...new Set(list.map((r) => r.owner))];
   coList.push({ sym, co: r0.co, en: r0.en, nb: b.length, ns: s.length, sb, ss, last: list[0].filed });
   const sumText = `${r0.co}（${sym}）では、当サイトの記録のある期間に、役員・大株主による市場での${[b.length ? `買いが${b.length}件（${usd(sb)}）` : '', s.length ? `売りが${s.length}件（${usd(ss)}）` : ''].filter(Boolean).join('、')}ありました。${s.length ? `売りのうち${pl}件は前もって決めた計画にそった売却です。` : ''}${b.length ? `買ったのは${[...new Set(b.map((r) => `${r.owner}（${r.role}）`))].slice(0, 3).join('、')}${new Set(b.map((r) => r.owner)).size > 3 ? 'など' : ''}です。` : '市場での買いはありません。'}`;
-  const body = `<section class="hero sm">${flowChart(list, 91, `${r0.co}（${sym}）の週ごとの買い・売り（直近13週）`, 220)}
+  const body = `<section class="hero sm">${flowChart(list, 7, `${r0.co}（${sym}）の週ごとの買い・売り（直近7週）`, 220)}
 <div class="hero-t"><p class="crumbs"><a href="/">トップ</a> › <a href="/companies/">会社一覧</a></p><h1><span class="sym big">${esc(sym)}</span>${esc(r0.co)}の役員・大株主の売買</h1>${r0.en && r0.en !== r0.co ? `<p class="en">${esc(r0.en)}</p>` : ''}</div>
 <div class="nums"><div class="n b"><span>買い</span><b>${b.length}<i>件</i></b><small>${usd(sb)}</small></div><div class="n s"><span>売り</span><b>${s.length}<i>件</i></b><small>${usd(ss)}${pl ? `・計画売却${pl}件` : ''}</small></div><div class="n"><span>報告した人</span><b>${people.length}<i>人</i></b><small>最終報告 ${md(r0.filed)}</small></div></div></section>
 <section class="box"><p class="lead">${esc(sumText)}</p><ul class="trs">${list.map((r) => line(r, false)).join('')}</ul></section>
@@ -144,11 +143,11 @@ ${updated}`;
 for (const c of Object.values(companies)) {
   const sym = String(c.ticker || '').toUpperCase().replace(/[^A-Z0-9.\-]/g, ''); if (!sym || bySym[sym]) continue;
   const co = c.ja || cap(c.name);
-  write(`/stock/${sym}/`, layout({ title: `${co}（${sym}）の役員の自社株売買`, desc: `${co}（${sym}）の役員・大株主の売買の報告（Form 4）。`, path: `/stock/${sym}/`, index: false, body: `<section class="hero sm">${flowChart([], 91, `${co}（${sym}）の週ごとの買い・売り（直近13週）`, 160)}<div class="hero-t"><p class="crumbs"><a href="/">トップ</a> › <a href="/companies/">会社一覧</a></p><h1><span class="sym big">${esc(sym)}</span>${esc(co)}の役員・大株主の売買</h1></div></section><section class="box"><p class="lead">当サイトの記録のある期間に、役員・大株主による市場での買い・売りの報告はありません（報酬として受け取った株やオプションの行使は含めていません）。</p></section>${checks}${updated}` }), false);
+  write(`/stock/${sym}/`, layout({ title: `${co}（${sym}）の役員の自社株売買`, desc: `${co}（${sym}）の役員・大株主の売買の報告（Form 4）。`, path: `/stock/${sym}/`, index: false, body: `<section class="hero sm">${flowChart([], 7, `${co}（${sym}）の週ごとの買い・売り（直近7週）`, 160)}<div class="hero-t"><p class="crumbs"><a href="/">トップ</a> › <a href="/companies/">会社一覧</a></p><h1><span class="sym big">${esc(sym)}</span>${esc(co)}の役員・大株主の売買</h1></div></section><section class="box"><p class="lead">当サイトの記録のある期間に、役員・大株主による市場での買い・売りの報告はありません（報酬として受け取った株やオプションの行使は含めていません）。</p></section>${checks}${updated}` }), false);
   coList.push({ sym, co, en: cap(c.name), nb: 0, ns: 0, sb: 0, ss: 0, last: '' });
 }
 coList.sort((a, b) => b.nb - a.nb || b.sb + b.ss - (a.sb + a.ss));
-write('/companies/', layout({ title: '会社一覧（米国株の役員の売買）', desc: `時価総額の大きい米国企業${coList.length}社の、役員・大株主の売買の件数の一覧。ティッカーや日本語の会社名で探せます。`, path: '/companies/', body: `<section class="hero sm">${flowChart(rows, 45)}<div class="hero-t"><h1>会社一覧</h1><p>時価総額の大きい米国企業${coList.length}社。役員・大株主の買いの件数が多い順です。</p></div></section><section class="box"><input class="q" type="search" placeholder="ティッカーか会社名で探す（例：NVDA、エヌビディア）" oninput="var q=this.value.toLowerCase();document.querySelectorAll('.cl tbody tr').forEach(function(r){r.hidden=q&&r.textContent.toLowerCase().indexOf(q)<0})"><table class="cl"><thead><tr><th>銘柄</th><th>会社</th><th class="r">買い</th><th class="r">売り</th><th class="r">最終報告</th></tr></thead><tbody>${coList.map((c) => `<tr><td><a class="sym" href="/stock/${c.sym}/">${esc(c.sym)}</a></td><td><a href="/stock/${c.sym}/">${esc(c.co)}</a><small>${esc(c.en)}</small></td><td class="r b">${c.nb ? `${c.nb}件<small>${usd(c.sb)}</small>` : '—'}</td><td class="r s">${c.ns ? `${c.ns}件<small>${usd(c.ss)}</small>` : '—'}</td><td class="r">${md(c.last) || '—'}</td></tr>`).join('')}</tbody></table></section>${updated}` }));
+write('/companies/', layout({ title: '会社一覧（米国株の役員の売買）', desc: `時価総額の大きい米国企業${coList.length}社の、役員・大株主の売買の件数の一覧。ティッカーや日本語の会社名で探せます。`, path: '/companies/', body: `<section class="hero sm">${flowChart(rows)}<div class="hero-t"><h1>会社一覧</h1><p>時価総額の大きい米国企業${coList.length}社。役員・大株主の買いの件数が多い順です。</p></div></section><section class="box"><input class="q" type="search" placeholder="ティッカーか会社名で探す（例：NVDA、エヌビディア）" oninput="var q=this.value.toLowerCase();document.querySelectorAll('.cl tbody tr').forEach(function(r){r.hidden=q&&r.textContent.toLowerCase().indexOf(q)<0})"><table class="cl"><thead><tr><th>銘柄</th><th>会社</th><th class="r">買い</th><th class="r">売り</th><th class="r">最終報告</th></tr></thead><tbody>${coList.map((c) => `<tr><td><a class="sym" href="/stock/${c.sym}/">${esc(c.sym)}</a></td><td><a href="/stock/${c.sym}/">${esc(c.co)}</a><small>${esc(c.en)}</small></td><td class="r b">${c.nb ? `${c.nb}件<small>${usd(c.sb)}</small>` : '—'}</td><td class="r s">${c.ns ? `${c.ns}件<small>${usd(c.ss)}</small>` : '—'}</td><td class="r">${md(c.last) || '—'}</td></tr>`).join('')}</tbody></table></section>${updated}` }));
 
 // 読み方・運営者情報・プライバシー
 const guideArt = `<svg class="gart" viewBox="0 0 720 200" role="img" aria-label="Form 4 の流れ"><g class="gs"><rect x="20" y="50" width="180" height="100"/><rect x="270" y="50" width="180" height="100"/><rect x="520" y="50" width="180" height="100"/></g><g class="ga"><path d="M205 100h55M455 100h55"/></g><text x="110" y="95" class="gt">役員・大株主が</text><text x="110" y="120" class="gt">自社株を売買</text><text x="360" y="95" class="gt">2営業日以内に</text><text x="360" y="120" class="gt">SECへ Form 4</text><text x="610" y="95" class="gt">当サイトが</text><text x="610" y="120" class="gt">日本語で集計</text></svg>`;

@@ -9,10 +9,10 @@ a{color:inherit}main{max-width:980px;margin:0 auto;padding:0 14px 40px}
 .hero{background:var(--pa);border:1px solid var(--ln);border-top:4px solid var(--ink);border-radius:3px;padding:14px 18px 18px;margin:6px 0 18px}
 .hero h1{font-size:clamp(22px,4.4vw,32px);line-height:1.35;margin:6px 0 6px;letter-spacing:.01em}.hero.sm h1{font-size:clamp(20px,3.6vw,26px)}
 .hero-t p{margin:0;color:var(--mu);font-size:14.5px}.hero .en{font-family:'Barlow Condensed',sans-serif;font-size:17px;letter-spacing:.02em}
-.flow{margin:0}.flow svg{width:100%;height:auto;display:block}.flow figcaption{font-size:12px;color:var(--mu);text-align:right}
+.flow{margin:0}.flow svg{width:100%;height:auto;display:block}.flow figcaption{font-size:12px;line-height:1.6;color:var(--mu);text-align:left;max-width:640px;margin:4px auto 0}
 .flow .by{fill:var(--buy)}.flow .sl{fill:var(--sell);opacity:.8}.flow .ax{stroke:var(--ink);stroke-width:1.2}
-.flow .tk{font:600 12px 'Barlow Condensed',sans-serif;fill:var(--mu);text-anchor:middle}.flow .v{font:700 12px 'Barlow Condensed',sans-serif;text-anchor:middle}.flow .lb{font:700 13px 'Zen Kaku Gothic New',sans-serif}.flow svg{max-width:640px;margin:0 auto}.flow .by-t{fill:var(--buy)}.flow .sl-t{fill:var(--sell)}
-.flow .pk{font:700 13px 'Zen Kaku Gothic New',sans-serif;fill:var(--ink);paint-order:stroke;stroke:var(--pa);stroke-width:4px}
+.flow .tk{font:600 14px 'Barlow Condensed',sans-serif;fill:var(--mu);text-anchor:middle}.flow .v{font:700 15px 'Barlow Condensed',sans-serif;text-anchor:middle}.flow .lb{font:700 14px 'Zen Kaku Gothic New',sans-serif}.flow svg{max-width:640px;margin:0 auto}.flow .by-t{fill:var(--buy)}.flow .sl-t{fill:var(--sell)}
+
 .nums{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:0;margin-top:14px;border-top:1px solid var(--ln)}
 .n{padding:10px 14px 4px 0;border-right:1px solid var(--ln);margin-right:14px}.n:last-child{border-right:0}
 .n span{display:block;font-size:13px;color:var(--mu)}.n b{font:700 46px/1 'Barlow Condensed',sans-serif;letter-spacing:-.01em}.n b i{font:700 15px 'Zen Kaku Gothic New',sans-serif;font-style:normal;margin-left:3px}
@@ -46,3 +46,5 @@ footer{max-width:980px;margin:0 auto;padding:20px 14px 40px;font-size:12.5px;col
 .cls{list-style:none;margin:0;padding:0}.cls a{display:grid;grid-template-columns:64px 1fr auto;gap:10px;padding:9px 4px;border-top:1px solid var(--ln);text-decoration:none;align-items:center}.cls a:hover{background:var(--hl)}.cls span:last-child{color:var(--buy);font-weight:700;font-size:14px}
 .q{width:100%;font:inherit;padding:10px 12px;border:2px solid var(--ink);background:var(--pa);color:var(--ink);margin-bottom:10px;border-radius:2px}
 @media(max-width:560px){.cls a{grid-template-columns:56px 1fr}.cls span:last-child{grid-column:2}}
+
+.flow .em{font:700 14px 'Zen Kaku Gothic New',sans-serif;fill:var(--mu);text-anchor:middle}
