@@ -67,16 +67,18 @@ const cutoff = (n) => jst(Date.now() - n * 864e5).slice(0, 10);
 
 // 日ごとの買い・売りの金額（SVG）。上が買い、下が売り
 function flowChart(list, n = 45, label = '', H = 240) {
-  const days = []; for (let i = n - 1; i >= 0; i--) days.push(cutoff(i));
-  const b = Object.fromEntries(days.map((d) => [d, 0])), s = Object.fromEntries(days.map((d) => [d, 0]));
-  for (const r of list) { const d = r.d1; if (!(d in b)) continue; if (r.code === 'P') b[d] += r.value; else s[d] += r.value; }
-  const W = 720, mid = H / 2, bw = (W - 40) / n;
-  const mb = Math.max(1, ...Object.values(b)), ms = Math.max(1, ...Object.values(s));
-  const sc = (v, m) => Math.sqrt(v / m) * (mid - 26); // 金額の幅が大きいので平方根で縮める
-  const bars = days.map((d, i) => { const x = 20 + i * bw; return `${b[d] ? `<rect class="by" x="${x.toFixed(1)}" y="${(mid - sc(b[d], mb)).toFixed(1)}" width="${(bw - 2).toFixed(1)}" height="${sc(b[d], mb).toFixed(1)}"/>` : ''}${s[d] ? `<rect class="sl" x="${x.toFixed(1)}" y="${mid}" width="${(bw - 2).toFixed(1)}" height="${sc(s[d], ms).toFixed(1)}"/>` : ''}`; }).join('');
-  const tick = days.map((d, i) => (i % 7 === (n - 1) % 7 ? `<text x="${(20 + i * bw + bw / 2).toFixed(1)}" y="${H - 4}" class="tk">${md(d)}</text>` : '')).join('');
-  const bd = days.reduce((m, d) => (b[d] > b[m] ? d : m), days[0]);
-  return `<figure class="flow"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(label || '日ごとの買い・売りの金額')}"><line x1="16" x2="${W - 16}" y1="${mid}" y2="${mid}" class="ax"/>${bars}${tick}<text x="20" y="16" class="lb by-t">買い ▲</text><text x="20" y="${H - 22}" class="lb sl-t">売り ▼</text>${b[bd] ? `<text x="${W - 20}" y="16" class="pk" text-anchor="end">買いが最も多い日：${md(bd)}（${usd(b[bd])}）</text>` : ''}</svg><figcaption>${esc(label || `日ごとの買い・売りの金額（直近${n}日、取引日ベース）`)}</figcaption></figure>`;
+  // 日ごとだと棒が細かすぎて読めないので、週ごと（7日ずつ）にまとめて表示する
+  const weeks = Math.ceil(n / 7), days = []; for (let i = weeks * 7 - 1; i >= 0; i--) days.push(cutoff(i));
+  const wk = Array.from({ length: weeks }, (_, k) => ({ from: days[k * 7], to: days[k * 7 + 6], b: 0, s: 0 }));
+  const idx = Object.fromEntries(days.map((d, i) => [d, Math.floor(i / 7)]));
+  for (const r of list) { const k = idx[r.d1]; if (k == null) continue; if (r.code === 'P') wk[k].b += r.value; else wk[k].s += r.value; }
+  const W = 400, top = 30, bot = 34, mid = top + (H - top - bot) / 2, room = (H - top - bot) / 2 - 16, bw = (W - 24) / weeks;
+  const mb = Math.max(1, ...wk.map((w) => w.b)), ms = Math.max(1, ...wk.map((w) => w.s));
+  const sc = (v, m) => (v ? Math.max(3, Math.sqrt(v / m) * room) : 0); // 金額の幅が大きいので平方根で縮める
+  const short = (v) => (v >= 1e8 ? `${(v / 1e8).toFixed(1)}億` : v >= 1e4 ? `${Math.round(v / 1e4)}万` : v ? '1万未満' : '');
+  const bars = wk.map((w, k) => { const x = 12 + k * bw, cx = (x + bw / 2).toFixed(1), hb = sc(w.b, mb), hs = sc(w.s, ms);
+    return `${w.b ? `<rect class="by" x="${(x + 3).toFixed(1)}" y="${(mid - hb).toFixed(1)}" width="${(bw - 6).toFixed(1)}" height="${hb.toFixed(1)}" rx="2"/><text class="v by-t" x="${cx}" y="${(mid - hb - 4).toFixed(1)}">${short(w.b)}</text>` : ''}${w.s ? `<rect class="sl" x="${(x + 3).toFixed(1)}" y="${mid}" width="${(bw - 6).toFixed(1)}" height="${hs.toFixed(1)}" rx="2"/><text class="v sl-t" x="${cx}" y="${(mid + hs + 13).toFixed(1)}">${short(w.s)}</text>` : ''}${weeks <= 8 || (weeks - 1 - k) % 2 === 0 ? `<text class="tk" x="${cx}" y="${H - 18}">${md(w.from)}〜</text>` : ''}`; }).join('');
+  return `<figure class="flow"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(label || '週ごとの買い・売りの金額')}"><line x1="8" x2="${W - 8}" y1="${mid}" y2="${mid}" class="ax"/>${bars}<text x="12" y="18" class="lb by-t">▲ 買い（ドル）</text><text x="${W - 12}" y="18" class="lb sl-t" text-anchor="end">売り（ドル）▼</text><text x="${W / 2}" y="${H - 3}" class="tk">週の始まりの日付</text></svg><figcaption>${esc(label || `週ごとの買い・売りの金額（直近${weeks}週、取引日ベース。買いと売りは別の目盛り）`)}</figcaption></figure>`;
 }
 
 const tag = (r) => (r.code === 'P' ? '<i class="tg b">買い</i>' : `<i class="tg s">売り</i>${r.plan ? '<i class="tg p">計画売却</i>' : ''}`);
@@ -120,7 +122,7 @@ ${checks}${updated}`;
 }
 
 // 買い一覧
-write('/buys/', layout({ title: '米国株 役員の自社株買い一覧', desc: `米国株の役員・大株主が市場で自社株を買った記録の一覧（${buys.length}件、SEC Form 4）。`, path: '/buys/', body: `<section class="hero sm">${flowChart(buys, 45, '日ごとの買いの金額（直近45日）')}<div class="hero-t"><h1>役員・大株主の自社株買い 一覧</h1><p>市場で自分のお金で買ったもの（取引コード P）だけを、報告日の新しい順に並べています。</p></div></section><section class="box"><ul class="trs">${buys.map((r) => line(r)).join('')}</ul></section>${checks}${updated}` }));
+write('/buys/', layout({ title: '米国株 役員の自社株買い一覧', desc: `米国株の役員・大株主が市場で自社株を買った記録の一覧（${buys.length}件、SEC Form 4）。`, path: '/buys/', body: `<section class="hero sm">${flowChart(buys, 45, '週ごとの買いの金額（直近7週）')}<div class="hero-t"><h1>役員・大株主の自社株買い 一覧</h1><p>市場で自分のお金で買ったもの（取引コード P）だけを、報告日の新しい順に並べています。</p></div></section><section class="box"><ul class="trs">${buys.map((r) => line(r)).join('')}</ul></section>${checks}${updated}` }));
 
 // 会社ページ
 const coList = [];
@@ -130,7 +132,7 @@ for (const [sym, list] of Object.entries(bySym)) {
   const people = [...new Set(list.map((r) => r.owner))];
   coList.push({ sym, co: r0.co, en: r0.en, nb: b.length, ns: s.length, sb, ss, last: list[0].filed });
   const sumText = `${r0.co}（${sym}）では、当サイトの記録のある期間に、役員・大株主による市場での${[b.length ? `買いが${b.length}件（${usd(sb)}）` : '', s.length ? `売りが${s.length}件（${usd(ss)}）` : ''].filter(Boolean).join('、')}ありました。${s.length ? `売りのうち${pl}件は前もって決めた計画にそった売却です。` : ''}${b.length ? `買ったのは${[...new Set(b.map((r) => `${r.owner}（${r.role}）`))].slice(0, 3).join('、')}${new Set(b.map((r) => r.owner)).size > 3 ? 'など' : ''}です。` : '市場での買いはありません。'}`;
-  const body = `<section class="hero sm">${flowChart(list, 90, `${r0.co}（${sym}）の日ごとの買い・売り（直近90日）`, 180)}
+  const body = `<section class="hero sm">${flowChart(list, 91, `${r0.co}（${sym}）の週ごとの買い・売り（直近13週）`, 220)}
 <div class="hero-t"><p class="crumbs"><a href="/">トップ</a> › <a href="/companies/">会社一覧</a></p><h1><span class="sym big">${esc(sym)}</span>${esc(r0.co)}の役員・大株主の売買</h1>${r0.en && r0.en !== r0.co ? `<p class="en">${esc(r0.en)}</p>` : ''}</div>
 <div class="nums"><div class="n b"><span>買い</span><b>${b.length}<i>件</i></b><small>${usd(sb)}</small></div><div class="n s"><span>売り</span><b>${s.length}<i>件</i></b><small>${usd(ss)}${pl ? `・計画売却${pl}件` : ''}</small></div><div class="n"><span>報告した人</span><b>${people.length}<i>人</i></b><small>最終報告 ${md(r0.filed)}</small></div></div></section>
 <section class="box"><p class="lead">${esc(sumText)}</p><ul class="trs">${list.map((r) => line(r, false)).join('')}</ul></section>
@@ -142,7 +144,7 @@ ${updated}`;
 for (const c of Object.values(companies)) {
   const sym = String(c.ticker || '').toUpperCase().replace(/[^A-Z0-9.\-]/g, ''); if (!sym || bySym[sym]) continue;
   const co = c.ja || cap(c.name);
-  write(`/stock/${sym}/`, layout({ title: `${co}（${sym}）の役員の自社株売買`, desc: `${co}（${sym}）の役員・大株主の売買の報告（Form 4）。`, path: `/stock/${sym}/`, index: false, body: `<section class="hero sm">${flowChart([], 90, `${co}（${sym}）の日ごとの買い・売り（直近90日）`, 120)}<div class="hero-t"><p class="crumbs"><a href="/">トップ</a> › <a href="/companies/">会社一覧</a></p><h1><span class="sym big">${esc(sym)}</span>${esc(co)}の役員・大株主の売買</h1></div></section><section class="box"><p class="lead">当サイトの記録のある期間に、役員・大株主による市場での買い・売りの報告はありません（報酬として受け取った株やオプションの行使は含めていません）。</p></section>${checks}${updated}` }), false);
+  write(`/stock/${sym}/`, layout({ title: `${co}（${sym}）の役員の自社株売買`, desc: `${co}（${sym}）の役員・大株主の売買の報告（Form 4）。`, path: `/stock/${sym}/`, index: false, body: `<section class="hero sm">${flowChart([], 91, `${co}（${sym}）の週ごとの買い・売り（直近13週）`, 160)}<div class="hero-t"><p class="crumbs"><a href="/">トップ</a> › <a href="/companies/">会社一覧</a></p><h1><span class="sym big">${esc(sym)}</span>${esc(co)}の役員・大株主の売買</h1></div></section><section class="box"><p class="lead">当サイトの記録のある期間に、役員・大株主による市場での買い・売りの報告はありません（報酬として受け取った株やオプションの行使は含めていません）。</p></section>${checks}${updated}` }), false);
   coList.push({ sym, co, en: cap(c.name), nb: 0, ns: 0, sb: 0, ss: 0, last: '' });
 }
 coList.sort((a, b) => b.nb - a.nb || b.sb + b.ss - (a.sb + a.ss));

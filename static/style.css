@@ -11,7 +11,7 @@ a{color:inherit}main{max-width:980px;margin:0 auto;padding:0 14px 40px}
 .hero-t p{margin:0;color:var(--mu);font-size:14.5px}.hero .en{font-family:'Barlow Condensed',sans-serif;font-size:17px;letter-spacing:.02em}
 .flow{margin:0}.flow svg{width:100%;height:auto;display:block}.flow figcaption{font-size:12px;color:var(--mu);text-align:right}
 .flow .by{fill:var(--buy)}.flow .sl{fill:var(--sell);opacity:.8}.flow .ax{stroke:var(--ink);stroke-width:1.2}
-.flow .tk{font:600 11px 'Barlow Condensed',sans-serif;fill:var(--mu);text-anchor:middle}.flow .lb{font:700 12px 'Zen Kaku Gothic New',sans-serif}.flow .by-t{fill:var(--buy)}.flow .sl-t{fill:var(--sell)}
+.flow .tk{font:600 12px 'Barlow Condensed',sans-serif;fill:var(--mu);text-anchor:middle}.flow .v{font:700 12px 'Barlow Condensed',sans-serif;text-anchor:middle}.flow .lb{font:700 13px 'Zen Kaku Gothic New',sans-serif}.flow svg{max-width:640px;margin:0 auto}.flow .by-t{fill:var(--buy)}.flow .sl-t{fill:var(--sell)}
 .flow .pk{font:700 13px 'Zen Kaku Gothic New',sans-serif;fill:var(--ink);paint-order:stroke;stroke:var(--pa);stroke-width:4px}
 .nums{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:0;margin-top:14px;border-top:1px solid var(--ln)}
 .n{padding:10px 14px 4px 0;border-right:1px solid var(--ln);margin-right:14px}.n:last-child{border-right:0}
