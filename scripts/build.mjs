@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
 const DIST = path.join(ROOT, 'dist');
-const SITE = { name: '米国株インサイダー速報', url: 'https://us.mminnie.com', operator: 'mminnie.com 編集部', contact: 'https://docs.google.com/forms/d/e/1FAIpQLSchNBjp8QQ7mbNG5nNGSI6-ikkx00QRZFPM8st0B6WLA16alQ/viewform', ga: 'G-XL7DW884H3', ads: 'ca-pub-2361768568271631' };
+const SITE = { name: '米国株インサイダー速報', url: 'https://us.mminnie.com', operator: '米国株インサイダー速報編集部', contact: 'https://docs.google.com/forms/d/e/1FAIpQLSchNBjp8QQ7mbNG5nNGSI6-ikkx00QRZFPM8st0B6WLA16alQ/viewform', ga: 'G-XL7DW884H3', ads: 'ca-pub-2361768568271631' };
 const read = (f, d) => (fs.existsSync(path.join(ROOT, 'data', f)) ? JSON.parse(fs.readFileSync(path.join(ROOT, 'data', f), 'utf8')) : d);
 const companies = read('companies.json', {}), trades = read('trades.json', {}), meta = read('meta.json', {});
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
@@ -157,7 +157,7 @@ write('/guide/', layout({ title: 'インサイダーの売買報告（Form 4）�
 <h2>計画売却（10b5-1プラン）</h2><p>役員が前もって売る時期や数量を決めておき、その計画にそって自動で売る仕組みです。報告にこの計画への言及があるものを、当サイトでは「計画売却」と表示しています。</p>
 <h2>当サイトが含めていないもの</h2><ul><li>報酬として受け取った株（取引コード A）</li><li>ストックオプションの行使（取引コード M）</li><li>贈与（取引コード G）など、市場での売買でないもの</li></ul>
 <h2>注意</h2><p>当サイトは公開された報告を自動で集計・翻訳したもので、内容の正確さを保証するものではありません。株価の予想や売買の推奨は行っていません。</p></article>` }));
-write('/about/', layout({ title: '運営者情報', desc: `${SITE.name}の運営者情報`, path: '/about/', index: false, body: `<article class="box prose"><h1>運営者情報</h1><ul class="kv"><li><span>サイト名</span><b>${SITE.name}</b></li><li><span>運営</span><b>${SITE.operator}</b></li><li><span>お問い合わせ</span><b><a href="${SITE.contact}" target="_blank" rel="noopener">お問い合わせフォーム</a></b></li></ul><h2>データについて</h2><p>米国証券取引委員会（SEC）のEDGARで公開されている Form 4 を、SECの利用ルールにそって取得しています。会社名の日本語表記の一部は Wikidata（CC0）を使っています。</p><h2>免責</h2><p>掲載内容は投資の勧誘や助言ではありません。投資の判断はご自身でお願いします。</p></article>` }), false);
+write('/about/', layout({ title: '運営者情報', desc: `${SITE.name}の運営者情報`, path: '/about/', index: false, body: `<article class="box prose"><h1>運営者情報</h1><ul class="kv"><li><span>サイト名</span><b>${SITE.name}</b></li><li><span>運営</span><b>${SITE.operator}</b></li><li><span>運営責任者</span><b>杉 栄志郎</b></li><li><span>お問い合わせ</span><b><a href="${SITE.contact}" target="_blank" rel="noopener">お問い合わせフォーム</a></b></li></ul><h2>データについて</h2><p>米国証券取引委員会（SEC）のEDGARで公開されている Form 4 を、SECの利用ルールにそって取得しています。会社名の日本語表記の一部は Wikidata（CC0）を使っています。</p><h2>免責</h2><p>掲載内容は投資の勧誘や助言ではありません。投資の判断はご自身でお願いします。</p></article>` }), false);
 write('/privacy/', layout({ title: 'プライバシーポリシー', desc: 'プライバシーポリシー', path: '/privacy/', index: false, body: `<article class="box prose"><h1>プライバシーポリシー</h1><h2>広告について</h2><p>当サイトは第三者配信の広告サービス（Google アドセンス）を利用しています。広告配信事業者は、ユーザーの興味に応じた広告を表示するために Cookie を使用することがあります。Cookie を無効にする設定やGoogleアドセンスに関する詳細は「<a href="https://policies.google.com/technologies/ads?hl=ja" target="_blank" rel="noopener">広告 – ポリシーと規約 – Google</a>」をご覧ください。</p><h2>アクセス解析について</h2><p>当サイトは Google アナリティクスを利用しています。データは匿名で収集され、個人を特定するものではありません。</p><h2>免責事項</h2><p>当サイトの情報の正確性には注意していますが、内容を保証するものではありません。当サイトの情報によって生じた損害について責任を負いかねます。</p></article>` }), false);
 
 // 静的ファイル
